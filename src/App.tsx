@@ -10,9 +10,12 @@ interface Message {
   type: string;
   body: string;
   userNickname?: string;
+  userIcon?: string; 
   isSystemMessage?: boolean;
   timestamp?: number;
 }
+
+const AVATAR_LIST = ["🤖", "🐱", "🐼", "🦊", "🐯", "🦁", "🐸", "💀"];
 
 function App() {
   const [client, setClient] = useState<any>(null);
@@ -22,7 +25,8 @@ function App() {
   const [messageInput, setMessageInput] = useState("");
   const myIdRef = useRef<string>(""); 
   const [showTypingLabel, setShowTypingLabel] = useState(false);
-  
+  const [selectedAvatar, setSelectedAvatar] = useState(AVATAR_LIST[0]); 
+
   const isTypingRef = useRef(false);
   const typingTimeoutRef = useRef<any>(null);
 
@@ -33,7 +37,6 @@ function App() {
       
       onMessage: (message: any) => {
         if (message.type === 'userId') {
-            console.log("My User ID is:", message.data.userId);
             myIdRef.current = message.data.userId;
         }
         if (message.type === SocketMessageTypes.SEND_MESSAGE) {
@@ -41,7 +44,7 @@ function App() {
         }
         if (message.type === SocketMessageTypes.SET_TYPING_PRESENCE) {
             const typingList = message.data.usersTyping || [];
-            const othersTyping = typingList.filter((id: string) => id !== myIdRef.current);          
+            const othersTyping = typingList.filter((id: string) => id !== myIdRef.current);
             setShowTypingLabel(othersTyping.length > 0);
         }
       }
@@ -49,7 +52,7 @@ function App() {
 
     const newClient = new TelepartyClient(eventHandler);
     setClient(newClient);
-  }, []); 
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const text = e.target.value;
@@ -71,14 +74,14 @@ function App() {
 
   const handleCreateRoom = async () => {
     if (!nickname) return alert("Enter nickname!");
-    const roomId = await client.createChatRoom(nickname);
+    const roomId = await client.createChatRoom(nickname, selectedAvatar);
     setMyRoomId(roomId);
   };
 
   const handleJoinRoom = async () => {
     const idToJoin = prompt("Enter Room ID to join:");
     if (!idToJoin || !nickname) return;
-    const result = await client.joinChatRoom(nickname, idToJoin);
+    const result = await client.joinChatRoom(nickname, idToJoin, selectedAvatar);
     setMyRoomId(idToJoin);
     if (result.messages) setMessages(result.messages);
   };
@@ -87,7 +90,6 @@ function App() {
     if (!messageInput) return;
     client.sendMessage(SocketMessageTypes.SEND_MESSAGE, { body: messageInput });
     setMessageInput("");
-    
     isTypingRef.current = false;
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     client.sendMessage(SocketMessageTypes.SET_TYPING_PRESENCE, { typing: false });
@@ -104,7 +106,26 @@ function App() {
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
           />
-          <br /><br />
+          
+          <h3>Choose your Avatar:</h3>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '20px' }}>
+            {AVATAR_LIST.map((avatar) => (
+              <button 
+                key={avatar} 
+                onClick={() => setSelectedAvatar(avatar)}
+                style={{ 
+                  fontSize: '24px', 
+                  padding: '5px',
+                  backgroundColor: selectedAvatar === avatar ? '#646cff' : '#333',
+                  border: selectedAvatar === avatar ? '2px solid white' : '1px solid gray',
+                  cursor: 'pointer'
+                }}
+              >
+                {avatar}
+              </button>
+            ))}
+          </div>
+
           <div className="buttons">
             <button onClick={handleCreateRoom}>Create New Room</button>
             <span style={{margin: '0 10px'}}>OR</span>
@@ -119,7 +140,7 @@ function App() {
     <div className="app-container">
       <div className="chat-header">
         <h2>Room: {myRoomId}</h2>
-        <p>You are: <b>{nickname}</b></p>
+        <p>Logged in as: {selectedAvatar} <b>{nickname}</b></p>
       </div>
 
       <div className="chat-history" style={{ 
@@ -134,6 +155,9 @@ function App() {
       }}>
         {messages.map((msg, index) => (
           <div key={index} style={{ marginBottom: '10px' }}>
+            <span style={{ fontSize: '20px', marginRight: '5px' }}>
+                {msg.userIcon || "👤"} 
+            </span>
             <strong style={{ color: msg.isSystemMessage ? 'yellow' : '#646cff' }}>
               {msg.userNickname || "System"}: 
             </strong> 
